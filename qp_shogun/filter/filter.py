@@ -57,15 +57,19 @@ def generate_filter_commands(forward_seqs, reverse_seqs, map_file,
     threads = parameters['Number of threads']
 
     for run_prefix, sample, f_fp, r_fp in samples:
-        cmds.append('bowtie2 {params} --very-sensitive -1 {fwd_ip} -2 {rev_ip}'
-                    ' | samtools view -f 12 -F 256 -b -o {bow_op}; '
+        # The pipefail option is used to catch errors happening between pipes.
+        # The '&&' ensures that a command is only run if the preceding command
+        # succeeded, otherwise the execution will halt and error.
+        cmds.append('set -o pipefail && '
+                    'bowtie2 {params} --very-sensitive -1 {fwd_ip} -2 {rev_ip}'
+                    ' | samtools view -f 12 -F 256 -b -o {bow_op} && '
 
                     'samtools sort -T {sample_path} -@ {thrds} -n -o {sam_op} '
-                    '{sam_un_op}; '
+                    '{sam_un_op} && '
 
                     'bedtools bamtofastq -i {sam_op} -fq {bedtools_op_one} '
-                    '-fq2 {bedtools_op_two}; '
-                    'pigz -p {thrds} -c {bedtools_op_one} > {gz_op_one}; '
+                    '-fq2 {bedtools_op_two} && '
+                    'pigz -p {thrds} -c {bedtools_op_one} > {gz_op_one} && '
                     'pigz -p {thrds} -c {bedtools_op_two} > {gz_op_two};'
 
                     .format(params=param_string, thrds=threads,
